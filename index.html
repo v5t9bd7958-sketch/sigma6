@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>SIGMA6</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; background: #000; overflow: hidden;
+    overscroll-behavior: none; -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Рабочая область = экран минус безопасные зоны (Dynamic Island, нижняя полоса) */
+  #stage {
+    position: fixed; background: #000;
+    top: env(safe-area-inset-top, 0px);
+    right: env(safe-area-inset-right, 0px);
+    bottom: env(safe-area-inset-bottom, 0px);
+    left: env(safe-area-inset-left, 0px);
+  }
+  /* Чёрная подложка при развороте: закрывает и блокирует остальные окна */
+  #veil {
+    position: absolute; inset: 0; background: #000; z-index: 5;
+    opacity: 0; pointer-events: none;
+  }
+  #veil.on { opacity: 1; pointer-events: auto; }
+  .slot {
+    position: absolute; overflow: hidden; background: #000;
+    outline: 1px solid #2a2a2a; z-index: 1;
+  }
+  .slot.open { z-index: 10; }
+  #stage.has-open .slot:not(.open) { pointer-events: none; }
+  .slot.anim { transition: left .2s ease, top .2s ease, width .2s ease, height .2s ease; }
+  .slot.anim .scaler { transition: transform .2s ease; }
+  /* iframe всегда имеет фиксированный размер 360x640 и только масштабируется —
+     поэтому разворот не вызывает перекладку внутри игры и перезагрузку */
+  .scaler { position: absolute; left: 0; top: 0; width: 360px; height: 640px; transform-origin: 0 0; }
+  .scaler iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+  .btn {
+    position: absolute; right: 4px; bottom: 4px; width: 28px; height: 28px; z-index: 3;
+    border: 0; padding: 0; border-radius: 50%; background: #2ecc40; color: #04310a;
+    font: 700 18px/28px -apple-system, system-ui, sans-serif; text-align: center;
+    touch-action: manipulation;
+  }
+  .btn::after { content: ""; position: absolute; inset: -8px; } /* зона касания ~44px */
+  .chip {
+    position: absolute; left: 4px; top: 4px; right: 40px; z-index: 3; pointer-events: none;
+    font: 10px/1.25 -apple-system, system-ui, sans-serif; color: #ddd;
+    background: rgba(0,0,0,.78); padding: 3px 5px; border-radius: 4px;
+    transition: opacity .4s;
+  }
+  .chip.err { color: #ffb4b4; }
+  .chip.hide { opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="veil"></div></div>
+
+<script>
+(function () {
+  var GAME_URL = 'https://phoenix.sigma4.fun/';
+  var DW = 360, DH = 640;      // фиксированный «логический» размер окна 9:16
+  var GAP = 3;                 // промежуток между ячейками, px
+  var COUNT = 6;
+  var TIMEOUT_MS = 12000;
+
+  var stage = document.getElementById('stage');
+  var veil = document.getElementById('veil');
+  var wins = [];
+  var openIdx = -1;
+
+  function makeChip(w, text, isErr, fadeMs) {
+    w.chip.textContent = text;
+    w.chip.className = 'chip' + (isErr ? ' err' : '');
+    clearTimeout(w.chipTimer);
+    if (fadeMs) w.chipTimer = setTimeout(function () { w.chip.classList.add('hide'); }, fadeMs);
+  }
+
+  function build(i) {
+    var slot = document.createElement('div'); slot.className = 'slot';
+    var scaler = document.createElement('div'); scaler.className = 'scaler';
+    var frame = document.createElement('iframe');
+    frame.title = 'Sigma4 #' + (i + 1);
+    frame.setAttribute('allow', 'autoplay; clipboard-write; fullscreen');
+    scaler.appendChild(frame);
+    var chip = document.createElement('div');
+    var btn = document.createElement('button');
+    btn.className = 'btn'; btn.type = 'button';
+    btn.textContent = '+'; btn.setAttribute('aria-label', 'Развернуть окно ' + (i + 1));
+    slot.appendChild(scaler); slot.appendChild(chip); slot.appendChild(btn);
+    stage.appendChild(slot);
+
+    var w = { slot: slot, scaler: scaler, frame: frame, chip: chip, btn: btn, loaded: false };
+    makeChip(w, 'Загрузка…', false, 0);
+
+    frame.addEventListener('load', function () {
+      w.loaded = true; clearTimeout(w.timer);
+      // load срабатывает и для страниц-заглушек браузера; содержимое чужого домена прочитать нельзя
+      makeChip(w, 'Событие load получено. Если окно пустое — Sigma4 не разрешает встраивание.', false, 5000);
+    });
+    w.timer = setTimeout(function () {
+      if (!w.loaded) makeChip(w, 'Нет ответа 12 с: возможно, встраивание запрещено (X-Frame-Options / frame-ancestors) или нет сети.', true, 0);
+    }, TIMEOUT_MS);
+
+    btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(i); });
+    frame.src = GAME_URL;   // iframe создаётся один раз и больше не пересоздаётся
+    return w;
+  }
+
+  function geom(i) {
+    var W = stage.clientWidth, H = stage.clientHeight, s, x, y;
+    if (i === openIdx) {
+      s = Math.min(W / DW, H / DH);
+      x = (W - DW * s) / 2; y = (H - DH * s) / 2;
+    } else {
+      var cw = (W - GAP) / 2, ch = (H - 2 * GAP) / 3;
+      s = Math.min(cw / DW, ch / DH);
+      x = (i % 2) * (cw + GAP) + (cw - DW * s) / 2;
+      y = Math.floor(i / 2) * (ch + GAP) + (ch - DH * s) / 2;
+    }
+    return { s: s, x: x, y: y };
+  }
+
+  function layout() {
+    wins.forEach(function (w, i) {
+      var g = geom(i);
+      w.slot.style.left = g.x + 'px';
+      w.slot.style.top = g.y + 'px';
+      w.slot.style.width = (DW * g.s) + 'px';
+      w.slot.style.height = (DH * g.s) + 'px';
+      w.scaler.style.transform = 'scale(' + g.s + ')';
+    });
+  }
+
+  function toggle(i) {
+    wins.forEach(function (w) { w.slot.classList.add('anim'); });
+    openIdx = (openIdx === i) ? -1 : i;
+    wins.forEach(function (w, k) {
+      var isOpen = k === openIdx;
+      w.slot.classList.toggle('open', isOpen);
+      w.btn.textContent = isOpen ? '\u2212' : '+';
+      w.btn.setAttribute('aria-label', (isOpen ? 'Свернуть' : 'Развернуть') + ' окно ' + (k + 1));
+    });
+    stage.classList.toggle('has-open', openIdx >= 0);
+    veil.classList.toggle('on', openIdx >= 0);
+    layout();
+    setTimeout(function () { wins.forEach(function (w) { w.slot.classList.remove('anim'); }); }, 260);
+  }
+
+  for (var i = 0; i < COUNT; i++) wins.push(build(i));
+  layout();
+
+  var raf = 0;
+  function relayout() { cancelAnimationFrame(raf); raf = requestAnimationFrame(layout); }
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
+
+  // Запрет pinch-zoom самой оболочки (внутри iframe жесты обрабатывает игра)
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>SIGMA 6</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: system-ui, sans-serif;
+}
+
+.grid {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top, 59px);
+  padding-bottom: env(safe-area-inset-bottom, 34px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  background: #222;
+}
+
+.cell {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.window {
+  position: relative;
+  flex: 0 1 auto;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 9 / 16;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #000;
+  border: 1px solid #222;
+  overflow: hidden;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  color: #444;
+  font-size: 14px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.expand-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: #22c55e;
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  touch-action: manipulation;
+}
+
+.window.expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  border: none;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: env(safe-area-inset-top, 59px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 34px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.window.expanded .screen {
+  position: relative;
+  inset: auto;
+  flex: 0 1 auto;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 9 / 16;
+}
+
+.window.expanded .expand-btn {
+  position: absolute;
+  right: max(6px, env(safe-area-inset-right, 0px));
+  bottom: max(6px, env(safe-area-inset-bottom, 34px));
+}
+</style>
+</head>
+<body>
+<main class="grid">
+  <div class="cell">
+    <div class="window">
+      <div class="screen">SIGMA 1</div>
+      <button class="expand-btn" aria-label="Развернуть окно 1" aria-expanded="false">⤢</button>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="window">
+      <div class="screen">SIGMA 2</div>
+      <button class="expand-btn" aria-label="Развернуть окно 2" aria-expanded="false">⤢</button>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="window">
+      <div class="screen">SIGMA 3</div>
+      <button class="expand-btn" aria-label="Развернуть окно 3" aria-expanded="false">⤢</button>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="window">
+      <div class="screen">SIGMA 4</div>
+      <button class="expand-btn" aria-label="Развернуть окно 4" aria-expanded="false">⤢</button>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="window">
+      <div class="screen">SIGMA 5</div>
+      <button class="expand-btn" aria-label="Развернуть окно 5" aria-expanded="false">⤢</button>
+    </div>
+  </div>
+  <div class="cell">
+    <div class="window">
+      <div class="screen">SIGMA 6</div>
+      <button class="expand-btn" aria-label="Развернуть окно 6" aria-expanded="false">⤢</button>
+    </div>
+  </div>
+</main>
+
+<script>
+document.querySelectorAll('.expand-btn').forEach((btn) => {
+  btn.addEventListener('click', (event) => {
+    event.stopPropagation();
+
+    const win = btn.closest('.window');
+    const shouldExpand = !win.classList.contains('expanded');
+
+    document.querySelectorAll('.window.expanded').forEach((item) => {
+      item.classList.remove('expanded');
+
+      const itemButton = item.querySelector('.expand-btn');
+      itemButton.textContent = '⤢';
+      itemButton.setAttribute('aria-expanded', 'false');
+    });
+
+    if (shouldExpand) {
+      win.classList.add('expanded');
+      btn.textContent = '×';
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  });
+});
+</script>
+</body>
+</html>

@@ -4,340 +4,237 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#05070d">
+<meta name="theme-color" content="#000000">
 <title>SIGMA6</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --gold: #c9a24b; --gold2: #f1d98a; --ink: #05070d; --mute: #8d93a8;
-    --ic: clamp(56px, 17.5vw, 80px);
-    --serif: "Cinzel", "Trajan Pro", Georgia, "Times New Roman", serif;
-    --sans: "Inter", -apple-system, "SF Pro Text", system-ui, sans-serif;
+  html, body {
+    margin: 0; height: 100%; background: #000; overflow: hidden;
+    overscroll-behavior: none; -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; background: var(--ink); color: #e9e6dc; font-family: var(--sans);
-    -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
-  body { background: radial-gradient(120% 55% at 50% 0%, #17223d 0%, #0a0e1a 55%, #04050a 100%) fixed; }
-  #app { padding: calc(env(safe-area-inset-top, 0px) + 12px) calc(env(safe-area-inset-right, 0px) + 12px)
-         calc(env(safe-area-inset-bottom, 0px) + 96px) calc(env(safe-area-inset-left, 0px) + 12px); }
-  header { display: flex; align-items: center; justify-content: space-between; margin: 2px 4px 18px; }
-  .brand { font-family: var(--serif); font-weight: 700; font-size: 20px; letter-spacing: .3em;
-    background: linear-gradient(180deg, var(--gold2), var(--gold)); -webkit-background-clip: text; color: transparent; }
-  .count { font-size: 11px; letter-spacing: .08em; color: var(--gold2); border: 1px solid rgba(201,162,75,.4);
-    border-radius: 999px; padding: 5px 11px; background: rgba(201,162,75,.07); }
+  /* Рабочая область = экран минус безопасные зоны и запас снизу */
+  #stage {
+    position: fixed; background: #000;
+    top: env(safe-area-inset-top, 0px);
+    right: env(safe-area-inset-right, 0px);
+    left: env(safe-area-inset-left, 0px);
+    --bottom-extra: 18px;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - var(--bottom-extra));
+  }
+  /* Чёрная подложка при развороте: закрывает и блокирует остальные окна */
+  #veil { position: absolute; inset: 0; background: #000; z-index: 5; opacity: 0; pointer-events: none; }
+  #veil.on { opacity: 1; pointer-events: auto; }
 
-  /* ----- сетка запуска: 4 колонки × 5 рядов ----- */
-  #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px 8px; }
-  .cell { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-  .icb { position: relative; width: var(--ic); height: var(--ic); font-size: var(--ic); padding: 0; border: 0;
-    background: none; border-radius: 23%; transition: transform .12s ease, filter .12s ease; }
-  .icb:active { transform: scale(.92); filter: brightness(1.25) drop-shadow(0 0 10px rgba(241,217,138,.55)); }
-  .ic { position: relative; width: 100%; height: 100%; border-radius: 23%; overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(241,217,138,.38), 0 10px 20px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.4); }
-  .ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .gl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: .58em; line-height: 1; font-family: var(--sans); }
-  .orb, .ring, .frame { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }
-  .ring { width: .52em; height: .52em; border: .13em solid; }
-  .frame { width: .54em; height: .54em; border: .055em solid #fff; border-radius: .08em; }
-  .dot { position: absolute; right: -3px; top: -3px; width: 13px; height: 13px; border-radius: 50%;
-    background: linear-gradient(#f1d98a, #c9a24b); border: 2px solid var(--ink); }
-  .bn { margin-top: 9px; max-width: 100%; font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase;
-    color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cn { margin-top: 2px; max-width: 100%; min-height: 30px; padding: 5px 6px; background: none; border: 0;
-    font: 600 12.5px var(--sans); color: var(--gold2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cn.empty { color: #5c6279; font-weight: 500; }
+  .slot { position: absolute; overflow: hidden; background: #000; outline: 1px solid #2a2a2a; z-index: 1; }
+  .slot.open { z-index: 10; }
+  #stage.has-open .slot:not(.open) { pointer-events: none; }
+  .slot.anim, .nick.anim { transition: left .2s ease, top .2s ease, width .2s ease, height .2s ease; }
+  .slot.anim .scaler { transition: transform .2s ease; }
+  /* iframe всегда 360x640 и только масштабируется: разворот не перезагружает страницу */
+  .scaler { position: absolute; left: 0; top: 0; width: 360px; height: 640px; transform-origin: 0 0; }
+  .scaler iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
 
-  /* ----- нижняя панель ----- */
-  nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px;
-    padding: 10px calc(env(safe-area-inset-right, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 10px) calc(env(safe-area-inset-left, 0px) + 16px);
-    background: rgba(6,9,16,.82); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
-    border-top: 1px solid rgba(201,162,75,.28); z-index: 20; }
-  .tab { flex: 1; padding: 13px 8px; border-radius: 13px; border: 1px solid transparent; background: none;
-    font: 600 12px var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
-  .tab.on { color: #1a1204; background: linear-gradient(180deg, #f6e3a1, #c9a24b);
-    box-shadow: 0 4px 16px rgba(201,162,75,.35), inset 0 1px 0 rgba(255,255,255,.55); }
+  /* Кнопка разворота: маленький оранжевый шарик, без мерцания */
+  .btn { position: absolute; right: 3px; bottom: 3px; width: 7px; height: 7px; z-index: 3; padding: 0;
+    border: 0; border-radius: 50%; background: #ff9a1f; touch-action: manipulation; }
+  .btn::after { content: ""; position: absolute; inset: -18px; } /* зона касания (в сетке 9 окон) */
+  /* В развёрнутом режиме кнопка прежнего размера и положения */
+  .slot.open .btn { right: 8px; bottom: 8px; width: 14px; height: 14px; }
+  .slot.open .btn::after { inset: -15px; }
 
-  /* ----- колонка ссылок ----- */
-  .row { background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-    border: 1px solid rgba(201,162,75,.24); border-radius: 18px; padding: 12px; margin-bottom: 12px; }
-  .rh { display: flex; align-items: center; gap: 12px; }
-  .rh .icb { --ic: 46px; flex: none; }
-  .rh .t b { display: block; font-size: 14px; font-weight: 600; }
-  .rh .t span { font-size: 12px; color: var(--gold2); }
-  .row input[type=text], .row input[type=url], textarea {
-    width: 100%; margin-top: 10px; padding: 12px; font: 16px var(--sans); color: #f0ece0;
-    background: #070a12; border: 1px solid #2a3047; border-radius: 11px; outline: none; }
-  textarea { min-height: 120px; }
-  .row input:focus, textarea:focus { border-color: var(--gold); }
-  .acts { display: flex; gap: 8px; margin-top: 8px; }
-  .mini { flex: 1; padding: 11px 6px; border-radius: 11px; border: 1px solid rgba(201,162,75,.45); background: rgba(201,162,75,.06);
-    color: var(--gold2); font: 600 12px var(--sans); letter-spacing: .04em; text-align: center; }
-  .mini:active { background: rgba(201,162,75,.22); }
-  details summary { margin-top: 12px; font-size: 12px; color: var(--mute); letter-spacing: .04em; }
-  .hint { font-size: 12px; color: var(--mute); margin: 0 4px 14px; line-height: 1.45; }
-  .hint code { color: var(--gold2); }
-  .hidden { display: none !important; }
-  #toast { position: fixed; left: 14px; right: 14px; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
-    background: rgba(24,28,44,.96); border: 1px solid rgba(201,162,75,.45); color: #fff; padding: 12px 14px;
-    border-radius: 13px; font-size: 13px; line-height: 1.35; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
-  #toast.on { opacity: 1; }
+  .chip { position: absolute; left: 4px; top: 4px; right: 40px; z-index: 3; pointer-events: none;
+    font: 10px/1.25 -apple-system, system-ui, sans-serif; color: #ddd; background: rgba(0,0,0,.78);
+    padding: 3px 5px; border-radius: 4px; transition: opacity .4s; }
+  .chip.err { color: #ffb4b4; }
+  .chip.hide { opacity: 0; }
+
+  /* Полоса с ником над окном (без рамок), высота ~3 мм */
+  .nick { position: absolute; height: 19px; z-index: 4; display: flex; align-items: center; overflow: visible; }
+  .nick.hide { opacity: 0; pointer-events: none; }
+  .nick.locked { z-index: 12; pointer-events: none; }
+  .nick.locked .dot { display: none; }
+  /* Точка редактирования (~10 px): синяя = просмотр, красная = правка */
+  .dot { position: relative; flex: none; width: 10.4px; height: 10.4px; margin: 0 6px 0 2px; padding: 0; border: 0;
+    border-radius: 50%; background: #2f80ff; touch-action: manipulation; }
+  .dot::after { content: ""; position: absolute; inset: -8.3px -11.3px; } /* зона касания шире точки */
+  .dot.edit { background: #ff3b30; }
+  .nick input { flex: 1; min-width: 0; height: 19px; margin: 0; padding: 0; border: 0; outline: 0;
+    background: transparent; color: #fff; font: 600 16px/19px -apple-system, system-ui, sans-serif;
+    pointer-events: none; -webkit-appearance: none; appearance: none; border-radius: 0; }
+  .nick input.edit { pointer-events: auto; }
+  .nick input::placeholder { color: #555; font-weight: 400; }
 </style>
 </head>
 <body>
-<div id="app">
-  <header><div class="brand">SIGMA6</div><div class="count" id="count"></div></header>
-  <div id="viewLaunch"><div id="grid"></div></div>
-  <div id="viewLinks" class="hidden"></div>
-</div>
-<nav>
-  <button class="tab on" id="tabLaunch" type="button">Запуск</button>
-  <button class="tab" id="tabLinks" type="button">Ссылки</button>
-</nav>
-<div id="toast"></div>
+<div id="stage"><div id="veil"></div></div>
 
 <script>
 (function () {
-  var GAME = 'https://phoenix.sigma4.fun/';
-  // Порядок и форма — как на главном экране: 4 колонки × 5 рядов; null — пустая ячейка
-  var LAYOUT = [
-    ['Aloha', 'Edge', 'Via', 'Brave'],
-    ['Chrome', 'Comet', 'Go Browser', 'Ecosia'],
-    ['Firefox', 'Vivaldi', 'Google', 'Phoenix'],
-    ['Opera', 'Arc Search', null, 'Opera GX'],
-    ['Quiche Browser', 'MultiWindow', null, null]
-  ];
-  // Схемы запуска. Заполнены только те, что я знаю; остальные можно вписать вручную в «Ссылки».
-  var DEF_TPL = {
-    'Edge': 'microsoft-edge-https://{nohttp}',
-    'Brave': 'brave://open-url?url={url}',
-    'Chrome': 'googlechromes://{nohttp}',
-    'Firefox': 'firefox://open-url?url={url}',
-    'Opera': 'opera-https://{nohttp}'
-  };
-  function G(t, css) { return '<span class="gl" style="' + css + '">' + t + '</span>'; }
-  function O(css) { return '<span class="orb" style="' + css + '"></span>'; }
-  function R(c) { return '<span class="ring" style="border-color:' + c + '"></span>'; }
-  var CLIP = '-webkit-background-clip:text;background-clip:text;color:transparent;';
-  // Стилизованные значки в духе логотипов (не точные копии; точные можно загрузить в «Ссылки» → «Иконка»)
-  var ICON = {
-    'Aloha': ['linear-gradient(145deg,#8cf0ee,#c3f6ff)', G('A', 'color:#0f2a30;font-family:Georgia,serif')],
-    'Edge': ['#fff', O('width:.66em;height:.66em;background:linear-gradient(135deg,#1b9de2 0%,#2bd2a1 75%)') + G('e', 'color:#fff;font-size:.4em')],
-    'Via': ['#fff', G('V', 'background:linear-gradient(135deg,#2f7bff,#ff4a1c 55%,#ffc21a);' + CLIP)],
-    'Brave': ['linear-gradient(#fff,#efefef)', G('B', 'color:#fb542b;font-size:.62em')],
-    'Chrome': ['#fff', O('width:.68em;height:.68em;background:conic-gradient(from -30deg,#ea4335 0 120deg,#34a853 0 240deg,#fbbc05 0 360deg)') + O('width:.3em;height:.3em;background:#fff') + O('width:.22em;height:.22em;background:#1a73e8')],
-    'Comet': ['linear-gradient(160deg,#1c1c1c,#000)', G('C', 'background:linear-gradient(#fff,#777);font-style:italic;' + CLIP)],
-    'Go Browser': ['#fff', O('width:.68em;height:.68em;background:conic-gradient(#ea4335,#fbbc05,#34a853,#4285f4,#ea4335)') + O('width:.36em;height:.36em;background:#fff')],
-    'Ecosia': ['#d6ee8c', G('E', 'color:#1f3d18')],
-    'Firefox': ['#fff', O('width:.68em;height:.68em;background:radial-gradient(circle at 70% 22%,#ffd23f,#ff7139 45%,#7d2fd0 100%)')],
-    'Vivaldi': ['linear-gradient(#f2503f,#e8202a)', O('width:.62em;height:.62em;background:#fff') + G('V', 'color:#e8202a;font-size:.4em')],
-    'Google': ['#1c1c1e', G('G', 'background:conic-gradient(#ea4335,#fbbc05,#34a853,#4285f4,#ea4335);' + CLIP)],
-    'Phoenix': ['linear-gradient(150deg,#1d6bf0,#4db2ff)', G('P', 'background:linear-gradient(#ffb36b,#ff5f8f);' + CLIP)],
-    'Opera': ['#fff', R('#e3202b')],
-    'Arc Search': ['linear-gradient(150deg,#271c3d,#0d0b16)', G('A', 'background:linear-gradient(135deg,#ff6b6b,#ffd36b,#5be3ff,#8b6bff);' + CLIP)],
-    'Opera GX': ['#0f0f13', R('#fa1e4e')],
-    'Quiche Browser': ['#fff', R('#111')],
-    'MultiWindow': ['linear-gradient(150deg,#6b2cf5,#4410d6)', '<span class="frame"></span>' + G('\u2195', 'color:#fff;font-size:.3em')]
-  };
+  var GAME_URL = 'https://www.google.com/';
+  // Проверка без правки файла: index.html?u=https://адрес  (любой адрес в окнах)
+  try {
+    var qu = new URLSearchParams(location.search).get('u');
+    if (qu && (qu === 'test' || /^https?:\/\//i.test(qu))) GAME_URL = qu;   // ?u=test — встроенная проверка окон
+  } catch (e) {}
+  var DW = 360, DH = 640;      // логический размер окна 9:16
+  var GAP = 3;                 // промежуток между ячейками по горизонтали
+  var NH = 19;                 // высота полосы ника (~3 мм)
+  var COLS = 3, ROWS = 3, COUNT = COLS * ROWS;
+  var TIMEOUT_MS = 12000;
+  var NICK_KEY = 'sigma6_nicks_v1';
 
-  var KEY = 'sigma6_launcher_v2';
-  var saved = {};
-  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
-  var NAMES = [];
-  LAYOUT.forEach(function (r) { r.forEach(function (n) { if (n) NAMES.push(n); }); });
+  var stage = document.getElementById('stage');
+  var veil = document.getElementById('veil');
+  var wins = [];
+  var openIdx = -1;
+  var nicks = [];
+  try { nicks = JSON.parse(localStorage.getItem(NICK_KEY) || '[]') || []; } catch (e) { nicks = []; }
 
-  var $ = function (id) { return document.getElementById(id); };
-  var toastEl = $('toast'), toastTimer;
-  function toast(t) { toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 5000); }
-  function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify(saved)); return true; }
-    catch (e) { toast('Не удалось сохранить: хранилище браузера недоступно или переполнено.'); return false; }
+  function saveNicks() { try { localStorage.setItem(NICK_KEY, JSON.stringify(nicks)); } catch (e) {} }
+
+  function makeChip(w, text, isErr, fadeMs) {
+    w.chip.textContent = text;
+    w.chip.className = 'chip' + (isErr ? ' err' : '');
+    clearTimeout(w.chipTimer);
+    if (fadeMs) w.chipTimer = setTimeout(function () { w.chip.classList.add('hide'); }, fadeMs);
   }
-  function get(n) {
-    var s = saved[n] || {};
-    return { ch: s.ch || '', link: s.link || '', tpl: (s.tpl !== undefined) ? s.tpl : (DEF_TPL[n] || ''), icon: s.icon || '' };
+
+  function setEditing(w, on) {
+    w.editing = on;
+    w.dot.classList.toggle('edit', on);
+    w.input.classList.toggle('edit', on);
+    w.input.readOnly = !on;
+    w.dot.setAttribute('aria-label', on ? 'Сохранить ник' : 'Редактировать ник');
+    if (on) { w.input.focus(); }
+    else { w.input.blur(); }
   }
-  function set(n, k, v) { (saved[n] = saved[n] || {})[k] = v; return persist(); }
-  function build(tpl, link) {
-    return tpl.split('{url}').join(encodeURIComponent(link)).split('{nohttp}').join(link.replace(/^https?:\/\//i, ''));
+  function commitNick(w, i) {
+    if (!w.editing) return;
+    nicks[i] = w.input.value.trim();
+    w.input.value = nicks[i];
+    saveNicks();
+    setEditing(w, false);
   }
-  function copy(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
-    return new Promise(function (res, rej) {
-      var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
-      var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
-      document.body.removeChild(ta); ok ? res() : rej();
+
+  function build(i) {
+    var slot = document.createElement('div'); slot.className = 'slot';
+    var scaler = document.createElement('div'); scaler.className = 'scaler';
+    var frame = document.createElement('iframe');
+    frame.title = 'Окно ' + (i + 1);
+    frame.setAttribute('allow', 'autoplay; clipboard-write; fullscreen');
+    scaler.appendChild(frame);
+    var chip = document.createElement('div');
+    var btn = document.createElement('button');
+    btn.className = 'btn'; btn.type = 'button';
+    btn.setAttribute('aria-label', 'Развернуть окно ' + (i + 1));
+    slot.appendChild(scaler); slot.appendChild(chip); slot.appendChild(btn);
+    stage.appendChild(slot);
+
+    var nick = document.createElement('div'); nick.className = 'nick';
+    var dot = document.createElement('button'); dot.className = 'dot'; dot.type = 'button';
+    dot.setAttribute('aria-label', 'Редактировать ник');
+    var input = document.createElement('input');
+    input.type = 'text'; input.placeholder = 'ник'; input.value = nicks[i] || '';
+    input.readOnly = true; input.maxLength = 40;
+    input.autocomplete = 'off'; input.autocapitalize = 'none';
+    input.setAttribute('autocorrect', 'off'); input.spellcheck = false;
+    input.setAttribute('aria-label', 'Ник окна ' + (i + 1));
+    nick.appendChild(dot); nick.appendChild(input);
+    stage.appendChild(nick);
+
+    var w = { slot: slot, scaler: scaler, frame: frame, chip: chip, btn: btn,
+              nick: nick, dot: dot, input: input, loaded: false, editing: false };
+    makeChip(w, 'Загрузка…', false, 0);
+
+    frame.addEventListener('load', function () {
+      w.loaded = true; clearTimeout(w.timer);
+      // load срабатывает и для страниц-заглушек браузера; содержимое чужого домена прочитать нельзя
+      makeChip(w, 'Событие load получено. Если окно пустое — сайт не разрешает встраивание.', false, 5000);
     });
-  }
+    w.timer = setTimeout(function () {
+      if (!w.loaded) makeChip(w, 'Нет ответа 12 с: возможно, сайт запрещает встраивание (X-Frame-Options / frame-ancestors) или нет сети.', true, 0);
+    }, TIMEOUT_MS);
 
-  function iconBtn(n, tag) {
-    var e = get(n);
-    var b = document.createElement(tag || 'button'); if (tag !== 'div') b.type = 'button';
-    b.className = 'icb';
-    var ic = document.createElement('div'); ic.className = 'ic';
-    if (e.icon) { var im = document.createElement('img'); im.src = e.icon; im.alt = n; ic.appendChild(im); }
-    else { ic.style.background = ICON[n][0]; ic.innerHTML = ICON[n][1]; }
-    b.appendChild(ic);
-    if (e.link) { var d = document.createElement('span'); d.className = 'dot'; b.appendChild(d); }
-    return b;
-  }
-
-  function launch(n) {
-    var e = get(n), link = (e.link || GAME).trim();
-    if (!/^https?:\/\//i.test(link)) { toast('Ссылка для «' + n + '» должна начинаться с http:// или https://'); return; }
-    if (!e.tpl) {
-      copy(link).then(function () {
-        toast('Для «' + n + '» схема запуска не задана. Ссылка скопирована: откройте этот браузер и вставьте её.');
-      }, function () { toast('Для «' + n + '» схема не задана, копирование не удалось. Ссылка: ' + link); });
-      return;
+    btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(i); });
+    dot.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (openIdx >= 0) return;               // в развёрнутом режиме не работает
+      if (w.editing) commitNick(w, i); else setEditing(w, true);
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); commitNick(w, i); }
+    });
+    if (GAME_URL === 'test') {
+      frame.srcdoc = '<body style="margin:0;background:#0a7d4b;color:#fff;font:28px sans-serif;padding:24px">ТЕСТ ОКНА ' + (i + 1) + '<br>iframe работает</body>';
+    } else {
+      frame.src = GAME_URL;   // iframe создаётся один раз и не пересоздаётся
     }
-    toast('Открываю в «' + n + '». Если ничего не произошло, браузер не поддерживает такую ссылку.');
-    window.location.href = build(e.tpl, link);
+    return w;
   }
 
-  function renderCount() {
-    var c = 0; NAMES.forEach(function (n) { if (get(n).ch) c++; });
-    $('count').textContent = 'ГЕРОИ ' + c + ' / ' + NAMES.length;
+  function geom(i) {
+    var W = stage.clientWidth, H = stage.clientHeight, s, w, h, x, y;
+    if (i === openIdx) {
+      s = Math.min(W / DW, (H - NH) / DH);
+      w = DW * s; h = DH * s;
+      x = (W - w) / 2; y = NH + (H - NH - h) / 2;
+    } else {
+      var cw = (W - (COLS - 1) * GAP) / COLS, ch = (H - ROWS * NH) / ROWS;
+      s = Math.min(cw / DW, ch / DH);
+      w = DW * s; h = DH * s;
+      var c = i % COLS, r = Math.floor(i / COLS);
+      x = c * (cw + GAP) + (cw - w) / 2;
+      y = r * (NH + ch) + NH + (ch - h) / 2;
+    }
+    return { s: s, w: w, h: h, x: x, y: y };
   }
 
-  function renderGrid() {
-    var g = $('grid'); g.innerHTML = '';
-    LAYOUT.forEach(function (row) {
-      row.forEach(function (n) {
-        var cell = document.createElement('div'); cell.className = 'cell';
-        if (!n) { g.appendChild(cell); return; }
-        var e = get(n);
-        var ib = iconBtn(n); ib.addEventListener('click', function () { launch(n); });
-        var bn = document.createElement('div'); bn.className = 'bn'; bn.textContent = n;
-        var cn = document.createElement('button'); cn.type = 'button';
-        cn.className = 'cn' + (e.ch ? '' : ' empty'); cn.textContent = e.ch || '+ имя героя';
-        cn.addEventListener('click', function () {
-          var v = window.prompt('Имя персонажа для «' + n + '»', get(n).ch);
-          if (v === null) return;
-          set(n, 'ch', v.trim()); renderGrid(); renderCount();
-        });
-        cell.appendChild(ib); cell.appendChild(bn); cell.appendChild(cn); g.appendChild(cell);
-      });
+  function layout() {
+    wins.forEach(function (w, i) {
+      var g = geom(i);
+      w.slot.style.left = g.x + 'px';
+      w.slot.style.top = g.y + 'px';
+      w.slot.style.width = g.w + 'px';
+      w.slot.style.height = g.h + 'px';
+      w.scaler.style.transform = 'scale(' + g.s + ')';
+      w.nick.style.left = g.x + 'px';
+      w.nick.style.top = (g.y - NH) + 'px';
+      w.nick.style.width = g.w + 'px';
     });
-    renderCount();
   }
 
-  function fileToIcon(file, cb) {
-    var fr = new FileReader();
-    fr.onload = function () {
-      var im = new Image();
-      im.onload = function () {
-        var s = 128, c = document.createElement('canvas'); c.width = c.height = s;
-        var m = Math.min(im.width, im.height), sx = (im.width - m) / 2, sy = (im.height - m) / 2;
-        c.getContext('2d').drawImage(im, sx, sy, m, m, 0, 0, s, s);
-        cb(c.toDataURL('image/png'));
-      };
-      im.onerror = function () { toast('Не удалось прочитать картинку.'); };
-      im.src = fr.result;
-    };
-    fr.readAsDataURL(file);
-  }
-
-  function renderLinks() {
-    var v = $('viewLinks'); v.innerHTML = '';
-    var hint = document.createElement('p'); hint.className = 'hint';
-    hint.innerHTML = 'Вставьте для каждого браузера ссылку его персонажа. Нажатие на значок в «Запуске» откроет именно её. ' +
-      'Точка на значке означает, что ссылка сохранена. Если поле пустое, откроется общий адрес игры.';
-    v.appendChild(hint);
-
-    NAMES.forEach(function (n) {
-      var e = get(n);
-      var row = document.createElement('div'); row.className = 'row';
-      var rh = document.createElement('div'); rh.className = 'rh';
-      var ib = iconBtn(n, 'div');
-      var t = document.createElement('div'); t.className = 't';
-      var b = document.createElement('b'); b.textContent = n;
-      var sp = document.createElement('span'); sp.textContent = e.ch || 'имя героя не указано';
-      t.appendChild(b); t.appendChild(sp); rh.appendChild(ib); rh.appendChild(t); row.appendChild(rh);
-
-      var inp = document.createElement('input'); inp.type = 'url'; inp.placeholder = 'Ссылка персонажа (https://…)';
-      inp.value = e.link; inp.autocapitalize = 'none'; inp.setAttribute('autocorrect', 'off'); inp.spellcheck = false;
-      inp.addEventListener('input', function () { set(n, 'link', inp.value.trim()); });
-      row.appendChild(inp);
-
-      var acts = document.createElement('div'); acts.className = 'acts';
-      function mini(label, fn) { var m = document.createElement('button'); m.type = 'button'; m.className = 'mini';
-        m.textContent = label; m.addEventListener('click', fn); acts.appendChild(m); }
-      mini('Вставить', function () {
-        if (!navigator.clipboard || !navigator.clipboard.readText) { toast('Вставьте вручную: коснитесь поля и выберите «Вставить».'); return; }
-        navigator.clipboard.readText().then(function (txt) { inp.value = txt.trim(); set(n, 'link', inp.value); },
-          function () { toast('Нет доступа к буферу. Вставьте вручную: коснитесь поля и выберите «Вставить».'); });
-      });
-      mini('Копировать', function () {
-        if (!inp.value) { toast('Поле пустое.'); return; }
-        copy(inp.value).then(function () { toast('Ссылка скопирована.'); }, function () { toast('Копирование не удалось.'); });
-      });
-      mini('Очистить', function () { inp.value = ''; set(n, 'link', ''); });
-      row.appendChild(acts);
-
-      var det = document.createElement('details');
-      var sum = document.createElement('summary'); sum.textContent = 'Схема запуска и иконка'; det.appendChild(sum);
-      var tpl = document.createElement('input'); tpl.type = 'text'; tpl.placeholder = 'Схема, например xxx://{nohttp}';
-      tpl.value = e.tpl; tpl.autocapitalize = 'none'; tpl.setAttribute('autocorrect', 'off'); tpl.spellcheck = false;
-      tpl.addEventListener('input', function () { set(n, 'tpl', tpl.value.trim()); });
-      det.appendChild(tpl);
-      var a2 = document.createElement('div'); a2.className = 'acts';
-      var file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.className = 'hidden';
-      file.addEventListener('change', function () {
-        if (!file.files[0]) return;
-        fileToIcon(file.files[0], function (url) { if (set(n, 'icon', url)) renderLinks(); });
-      });
-      var mi = document.createElement('button'); mi.type = 'button'; mi.className = 'mini'; mi.textContent = 'Загрузить иконку';
-      mi.addEventListener('click', function () { file.click(); });
-      var mr = document.createElement('button'); mr.type = 'button'; mr.className = 'mini'; mr.textContent = 'Сбросить иконку';
-      mr.addEventListener('click', function () { set(n, 'icon', ''); renderLinks(); });
-      a2.appendChild(mi); a2.appendChild(mr); det.appendChild(a2); det.appendChild(file);
-      row.appendChild(det);
-      v.appendChild(row);
+  function toggle(i) {
+    wins.forEach(function (w, k) { commitNick(w, k); });   // сохранить правки перед разворотом
+    wins.forEach(function (w) { w.slot.classList.add('anim'); w.nick.classList.add('anim'); });
+    openIdx = (openIdx === i) ? -1 : i;
+    wins.forEach(function (w, k) {
+      var isOpen = k === openIdx;
+      w.slot.classList.toggle('open', isOpen);
+      w.nick.classList.toggle('locked', isOpen);
+      w.nick.classList.toggle('hide', openIdx >= 0 && !isOpen);
+      w.btn.setAttribute('aria-label', (isOpen ? 'Свернуть' : 'Развернуть') + ' окно ' + (k + 1));
     });
-
-    var bk = document.createElement('div'); bk.className = 'row';
-    var bd = document.createElement('details');
-    var bs = document.createElement('summary'); bs.textContent = 'Резервная копия имён и ссылок'; bd.appendChild(bs);
-    var ta = document.createElement('textarea'); ta.placeholder = 'Здесь появится копия. Для восстановления вставьте сюда текст и нажмите «Импорт».';
-    ta.spellcheck = false; bd.appendChild(ta);
-    var a3 = document.createElement('div'); a3.className = 'acts';
-    var ex = document.createElement('button'); ex.type = 'button'; ex.className = 'mini'; ex.textContent = 'Экспорт';
-    ex.addEventListener('click', function () {
-      var out = {}; NAMES.forEach(function (n) { var e = get(n); out[n] = { ch: e.ch, link: e.link, tpl: e.tpl }; });
-      ta.value = JSON.stringify(out, null, 1);
-      copy(ta.value).then(function () { toast('Копия создана и скопирована.'); }, function () { toast('Копия создана. Скопируйте её из поля.'); });
-    });
-    var im = document.createElement('button'); im.type = 'button'; im.className = 'mini'; im.textContent = 'Импорт';
-    im.addEventListener('click', function () {
-      try {
-        var data = JSON.parse(ta.value);
-        NAMES.forEach(function (n) { if (data[n]) { var s = saved[n] = saved[n] || {};
-          if (typeof data[n].ch === 'string') s.ch = data[n].ch;
-          if (typeof data[n].link === 'string') s.link = data[n].link;
-          if (typeof data[n].tpl === 'string') s.tpl = data[n].tpl; } });
-        if (persist()) { toast('Импортировано.'); renderLinks(); }
-      } catch (err) { toast('Не удалось разобрать текст. Нужен формат, созданный кнопкой «Экспорт».'); }
-    });
-    a3.appendChild(ex); a3.appendChild(im); bd.appendChild(a3); bk.appendChild(bd); v.appendChild(bk);
+    stage.classList.toggle('has-open', openIdx >= 0);
+    veil.classList.toggle('on', openIdx >= 0);
+    layout();
+    setTimeout(function () {
+      wins.forEach(function (w) { w.slot.classList.remove('anim'); w.nick.classList.remove('anim'); });
+    }, 260);
   }
 
-  function show(tab) {
-    var isL = tab === 'launch';
-    $('viewLaunch').classList.toggle('hidden', !isL);
-    $('viewLinks').classList.toggle('hidden', isL);
-    $('tabLaunch').classList.toggle('on', isL);
-    $('tabLinks').classList.toggle('on', !isL);
-    if (isL) renderGrid(); else renderLinks();
-    window.scrollTo(0, 0);
-  }
-  $('tabLaunch').addEventListener('click', function () { show('launch'); });
-  $('tabLinks').addEventListener('click', function () { show('links'); });
-  show('launch');
+  for (var i = 0; i < COUNT; i++) wins.push(build(i));
+  layout();
+
+  var raf = 0;
+  function relayout() { cancelAnimationFrame(raf); raf = requestAnimationFrame(layout); }
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
+
+  // Запрет pinch-zoom самой оболочки (внутри iframe жесты обрабатывает страница)
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
 })();
 </script>
 </body>

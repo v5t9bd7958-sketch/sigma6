@@ -19,8 +19,11 @@
     position: fixed; background: #000;
     top: env(safe-area-inset-top, 0px);
     right: env(safe-area-inset-right, 0px);
-    bottom: env(safe-area-inset-bottom, 0px);
     left: env(safe-area-inset-left, 0px);
+    /* высота = видимая область (dvh) минус безопасные зоны и запас снизу,
+       чтобы нижний ряд не заходил под системную панель Safari */
+    --bottom-extra: 18px;
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - var(--bottom-extra));
   }
   /* Чёрная подложка при развороте: закрывает и блокирует остальные окна */
   #veil {
@@ -65,7 +68,7 @@
   var GAME_URL = 'https://phoenix.sigma4.fun/';
   var DW = 360, DH = 640;      // фиксированный «логический» размер окна 9:16
   var GAP = 3;                 // промежуток между ячейками, px
-  var COUNT = 6;
+  var COLS = 3, ROWS = 3, COUNT = COLS * ROWS;
   var TIMEOUT_MS = 12000;
 
   var stage = document.getElementById('stage');
@@ -117,10 +120,10 @@
       s = Math.min(W / DW, H / DH);
       x = (W - DW * s) / 2; y = (H - DH * s) / 2;
     } else {
-      var cw = (W - GAP) / 2, ch = (H - 2 * GAP) / 3;
+      var cw = (W - (COLS - 1) * GAP) / COLS, ch = (H - (ROWS - 1) * GAP) / ROWS;
       s = Math.min(cw / DW, ch / DH);
-      x = (i % 2) * (cw + GAP) + (cw - DW * s) / 2;
-      y = Math.floor(i / 2) * (ch + GAP) + (ch - DH * s) / 2;
+      x = (i % COLS) * (cw + GAP) + (cw - DW * s) / 2;
+      y = Math.floor(i / COLS) * (ch + GAP) + (ch - DH * s) / 2;
     }
     return { s: s, x: x, y: y };
   }

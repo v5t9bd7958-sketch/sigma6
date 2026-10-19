@@ -7,130 +7,308 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>SIGMA6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  html, body {
-    margin: 0; height: 100%; background: #000; overflow: hidden;
-    overscroll-behavior: none; -webkit-text-size-adjust: 100%;
-    -webkit-tap-highlight-color: transparent;
+  :root {
+    --serif: "Cinzel", "Trajan Pro", Georgia, "Times New Roman", serif;
+    --sans: "Inter", -apple-system, "SF Pro Text", system-ui, sans-serif;
+    --safe-b: env(safe-area-inset-bottom, 0px);
   }
-  /* Рабочая область = экран минус безопасные зоны и запас снизу */
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
+    background: radial-gradient(130% 70% at 50% 0%, #121828 0%, #07090f 55%, #020306 100%) fixed;
+    color: #eee; font-family: var(--sans);
+  }
   #stage {
-    position: fixed; background: #000;
+    position: fixed;
     top: env(safe-area-inset-top, 0px);
     right: env(safe-area-inset-right, 0px);
     left: env(safe-area-inset-left, 0px);
-    --bottom-extra: 18px;
-    height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - var(--bottom-extra));
+    height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--safe-b) - 14px);
   }
-  /* Чёрная подложка при развороте: закрывает и блокирует остальные окна */
-  #veil { position: absolute; inset: 0; background: #000; z-index: 5; opacity: 0; pointer-events: none; }
-  #veil.on { opacity: 1; pointer-events: auto; }
+  .cell {
+    position: absolute; z-index: 1; margin: 0; padding: 0; overflow: hidden; cursor: pointer;
+    border: 1px solid transparent; border-radius: 7px; color: #eee; text-align: center;
+    background:
+      linear-gradient(165deg, #121623 0%, #090b12 55%, #05060a 100%) padding-box,
+      linear-gradient(145deg, rgba(255,255,255,.42), rgba(255,255,255,.05) 34%, rgba(255,255,255,.02) 66%, rgba(255,255,255,.26)) border-box;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 22px rgba(0,0,0,.55), 0 8px 18px rgba(0,0,0,.65);
+    touch-action: manipulation; transition: transform .12s ease, filter .12s ease;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    text-decoration: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  }
+  .cell::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(118deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 32%, rgba(255,255,255,0) 68%, rgba(120,150,255,.07) 100%);
+  }
+  .cell:active { transform: scale(.975); filter: brightness(1.25); }
+  .bgimg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: .55; pointer-events: none; display: none; }
+  .cell.hasbg .bgimg { display: block; }
+  .cell.hasbg .idx { color: rgba(255,255,255,.7); text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+  .cell.hasbg .lab, .cell.hasbg .sub { text-shadow: 0 1px 5px rgba(0,0,0,.9); }
+  .idx, .lab, .sub { position: relative; z-index: 1; }
+  .idx { font: 400 34px/1 var(--serif); letter-spacing: .04em; color: rgba(255,255,255,.16); }
+  .cell.has .idx { color: rgba(255,255,255,.55); }
+  .lab { max-width: 88%; padding: 0 4px; font: 500 10px/1.3 var(--sans); letter-spacing: .06em; text-transform: uppercase;
+    color: #6f7690; word-break: break-all; }
+  .cell.has .lab { color: #aeb6d0; }
+  .sub { max-width: 88%; padding: 0 4px; font: 400 10px/1.3 var(--sans); color: #565c72; word-break: break-all; }
+  .cell.has .sub { color: #7d86a4; }
+  .st { position: absolute; left: 6px; right: 6px; bottom: 5px; font: 600 10px/1.2 var(--sans); letter-spacing: .04em;
+    color: #9be7a5; text-align: left; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .st.on { opacity: 1; }
+  .st.bad { color: #ffb4b4; }
 
-  .slot { position: absolute; overflow: hidden; background: #000; outline: 1px solid #2a2a2a; z-index: 1; }
-  .slot.open { z-index: 10; }
-  #stage.has-open .slot:not(.open) { pointer-events: none; }
-  .slot.anim, .nick.anim { transition: left .2s ease, top .2s ease, width .2s ease, height .2s ease; }
-  .slot.anim .scaler { transition: transform .2s ease; }
-  /* iframe всегда 360x640 и только масштабируется: разворот не перезагружает страницу */
-  .scaler { position: absolute; left: 0; top: 0; width: 360px; height: 640px; transform-origin: 0 0; }
-  .scaler iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+  .gem { position: absolute; right: 3px; bottom: 3px; width: 7px; height: 7px; pointer-events: none; }
+  .gem::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.8) 0%, rgba(255,255,255,0) 38%),
+      conic-gradient(from 25deg, #ffc46b, #ff9a1f 25%, #d97800 50%, #ff9a1f 75%, #ffc46b);
+    box-shadow: inset 0 0 0 .5px rgba(255,255,255,.65), inset 0 -1.5px 2px rgba(120,50,0,.4), 0 0 4px rgba(255,154,31,.55);
+    opacity: .94; }
 
-  /* Кнопка разворота: маленький оранжевый шарик, без мерцания */
-  .btn { position: absolute; right: 3px; bottom: 3px; width: 7px; height: 7px; z-index: 3; padding: 0;
-    border: 0; border-radius: 50%; background: #ff9a1f; touch-action: manipulation; }
-  .btn::after { content: ""; position: absolute; inset: -18px; } /* зона касания (в сетке 9 окон) */
-  /* В развёрнутом режиме кнопка прежнего размера и положения */
-  .slot.open .btn { right: 8px; bottom: 8px; width: 14px; height: 14px; }
-  .slot.open .btn::after { inset: -15px; }
+  /* Маленькая кнопка «возврат» слева внизу ячейки — открывает голую схему без адреса */
+  .ret { position: absolute; left: 4px; bottom: 3px; z-index: 3; width: 20px; height: 20px;
+    display: none; align-items: center; justify-content: center; padding: 0; border: 0; background: none;
+    font: 600 13px/1 var(--sans); color: #9be7a5; touch-action: manipulation;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  .cell.hasret .ret { display: flex; }
+  .ret:active { filter: brightness(1.4); }
 
-  .chip { position: absolute; left: 4px; top: 4px; right: 40px; z-index: 3; pointer-events: none;
-    font: 10px/1.25 -apple-system, system-ui, sans-serif; color: #ddd; background: rgba(0,0,0,.78);
-    padding: 3px 5px; border-radius: 4px; transition: opacity .4s; }
-  .chip.err { color: #ffb4b4; }
-  .chip.hide { opacity: 0; }
-
-  /* Полоса с ником над окном (без рамок), высота ~3 мм */
   .nick { position: absolute; height: 19px; z-index: 4; display: flex; align-items: center; overflow: visible; }
-  .nick.hide { opacity: 0; pointer-events: none; }
-  .nick.locked { z-index: 12; pointer-events: none; }
-  .nick.locked .dot { display: none; }
-  /* Точка редактирования (~10 px): синяя = просмотр, красная = правка */
   .dot { position: relative; flex: none; width: 10.4px; height: 10.4px; margin: 0 6px 0 2px; padding: 0; border: 0;
-    border-radius: 50%; background: #2f80ff; touch-action: manipulation; }
-  .dot::after { content: ""; position: absolute; inset: -8.3px -11.3px; } /* зона касания шире точки */
-  .dot.edit { background: #ff3b30; }
+    background: none; touch-action: manipulation; }
+  .dot::before { content: ""; position: absolute; inset: 0; border-radius: 50%;
+    clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.9) 0%, rgba(255,255,255,0) 40%),
+      linear-gradient(115deg, transparent 0 46%, rgba(255,255,255,.55) 47%, transparent 50%),
+      conic-gradient(from 20deg, #7db4ff, #2f80ff 22%, #1a5cc9 50%, #2f80ff 76%, #7db4ff);
+    opacity: .95; filter: drop-shadow(0 0 2px rgba(47,128,255,.7)); }
+  .dot::after { content: ""; position: absolute; inset: -8.3px -11.3px; }
+  .dot.edit::before {
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.9) 0%, rgba(255,255,255,0) 40%),
+      linear-gradient(115deg, transparent 0 46%, rgba(255,255,255,.55) 47%, transparent 50%),
+      conic-gradient(from 20deg, #ff8a80, #ff3b30 22%, #c4150c 50%, #ff3b30 76%, #ff8a80);
+    filter: drop-shadow(0 0 2px rgba(255,59,48,.75)); }
   .nick input { flex: 1; min-width: 0; height: 19px; margin: 0; padding: 0; border: 0; outline: 0;
-    background: transparent; color: #fff; font: 600 16px/19px -apple-system, system-ui, sans-serif;
+    background: transparent; color: #fff; font: 600 16px/19px var(--sans); letter-spacing: .01em;
     pointer-events: none; -webkit-appearance: none; appearance: none; border-radius: 0; }
   .nick input.edit { pointer-events: auto; }
-  .nick input::placeholder { color: #555; font-weight: 400; }
+  .nick input::placeholder { color: #4d5266; font-weight: 400; }
+  .cross { position: relative; flex: none; width: 12px; height: 12px; margin: 0 3px 0 6px; padding: 0; border: 0;
+    background:
+      linear-gradient(180deg, #a6f9b2 0%, #2ecc40 45%, #178a29 100%) center / 100% 2px no-repeat,
+      linear-gradient(90deg, #a6f9b2 0%, #2ecc40 45%, #178a29 100%) center / 2px 100% no-repeat;
+    filter: drop-shadow(0 0 2px rgba(46,204,64,.75)); touch-action: manipulation; }
+  .cross::after { content: ""; position: absolute; inset: -11px; }
+
+  #sheetBg { position: fixed; inset: 0; z-index: 100; display: none; background: rgba(0,0,0,.62);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  #sheetBg.on { display: block; }
+  #sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 101; display: none; color: #eee;
+    border: 1px solid transparent; border-bottom: 0; border-radius: 16px 16px 0 0;
+    background:
+      linear-gradient(180deg, #151826, #0a0c14) padding-box,
+      linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,.05)) border-box;
+    font: 14px/1.35 var(--sans);
+    padding: 14px 14px calc(14px + var(--safe-b)); max-height: 90dvh; overflow-y: auto; }
+  #sheet.on { display: block; }
+  #sheet .ttl { font: 600 14px var(--serif); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; color: #cfd6ee; }
+  #sheet input[type=text] { display: block; width: 100%; box-sizing: border-box; padding: 12px; border-radius: 11px;
+    border: 1px solid #2c3146; background: #06070c; color: #f2f2f2; font: 16px var(--sans); outline: none; }
+  #sheet input[type=text]:focus { border-color: #2ecc40; }
+  #sheet .msg { min-height: 18px; margin: 6px 2px 0; font-size: 12px; color: #ffb4b4; }
+  #sheet .msg.ok { color: #9be7a5; }
+  #sheet .row { display: flex; gap: 8px; margin-top: 8px; }
+  #sheet .row > * { flex: 1; min-width: 0; }
+  #sheet .chips { display: flex; gap: 6px; margin: 4px 2px 8px; flex-wrap: wrap; }
+  #sheet .chip { padding: 6px 10px; border-radius: 8px; border: 1px solid #2c3146; background: #0a0c14;
+    color: #aeb6d0; font: 500 12px var(--sans); touch-action: manipulation; }
+  #sheet .chip:active { filter: brightness(1.3); }
+  #sheet button, #sheet a.try {
+    --gem: linear-gradient(135deg, rgba(86,108,190,.88), rgba(26,32,72,.92));
+    position: relative; overflow: hidden; display: block; box-sizing: border-box; text-align: center; text-decoration: none;
+    padding: 13px 8px; border-radius: 9px; border: 1px solid rgba(190,205,255,.38); color: #eef2ff;
+    font: 600 14px var(--sans); touch-action: manipulation; -webkit-touch-callout: none;
+    background:
+      linear-gradient(115deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 26%),
+      linear-gradient(115deg, transparent 0 41%, rgba(255,255,255,.26) 41.5%, transparent 42.4%),
+      linear-gradient(245deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 30%),
+      linear-gradient(245deg, transparent 0 58%, rgba(255,255,255,.16) 58.5%, transparent 59.4%),
+      linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,.3) 100%),
+      var(--gem);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.4), 0 4px 14px rgba(70,100,220,.28);
+  }
+  #sheet button.ok { --gem: linear-gradient(135deg, rgba(92,236,112,.96), rgba(24,138,46,.96)); color: #04310a;
+    border-color: rgba(200,255,210,.55); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,40,0,.4), 0 0 0 1px rgba(0,0,0,.4), 0 4px 14px rgba(46,204,64,.35); }
+  #sheet button:active, #sheet a.try:active { filter: brightness(1.25); }
+  #sheet .lbl { margin: 12px 2px 4px; font-size: 12px; color: #9aa3c4; }
+  #sheet .lbl:first-of-type { margin-top: 0; }
+
+  #toast { position: fixed; left: 14px; right: 14px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 200;
+    background: rgba(20,24,40,.96); border: 1px solid #343b58; color: #fff; padding: 11px 14px; border-radius: 13px;
+    font-size: 13px; line-height: 1.35; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  #toast.on { opacity: 1; }
 </style>
 </head>
 <body>
-<div id="stage"><div id="veil"></div></div>
+<div id="stage"></div>
+<div id="sheetBg"></div>
+<div id="sheet">
+  <div class="ttl" id="shTitle">Ячейка</div>
+  <div class="lbl">Ссылка для первого запуска (с адресом)</div>
+  <input id="shFull" type="text" inputmode="url" enterkeyhint="next" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Вставьте ссылку с адресом игры">
+  <div class="lbl">Ссылка для возврата (только приложение, без адреса)</div>
+  <input id="shRes" type="text" inputmode="url" enterkeyhint="go" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Необязательно: схема приложения, например googlechromes://">
+  <div class="chips" id="shChips">
+    <button type="button" class="chip" data-scheme="googlechromes://">Chrome</button>
+    <button type="button" class="chip" data-scheme="youtube://">YouTube</button>
+    <button type="button" class="chip" data-scheme="tg://">Telegram</button>
+    <button type="button" class="chip" data-scheme="safari://">Safari</button>
+    <button type="button" class="chip" data-scheme="maps://">Карты</button>
+  </div>
+  <div class="msg" id="shMsg"></div>
+  <div class="row"><button type="button" id="shPaste">Вставить</button><button type="button" id="shClear">Очистить всё</button></div>
+  <div class="row"><a id="shTryFull" class="try" href="#">Открыть с адресом</a><a id="shTryRes" class="try" href="#">Открыть возврат</a></div>
+  <div class="row"><button type="button" id="shBg">Фон…</button><button type="button" id="shBgOff">Убрать фон</button></div>
+  <input id="shBgFile" type="file" accept="image/*" style="display:none">
+  <div class="row"><button type="button" class="ok" id="shOk">ОК</button><button type="button" id="shClose">Закрыть</button></div>
+</div>
+<div id="toast"></div>
 
 <script>
 (function () {
-  var GAME_URL = 'https://www.google.com/';
-  // Проверка без правки файла: index.html?u=https://адрес  (любой адрес в окнах)
-  try {
-    var qu = new URLSearchParams(location.search).get('u');
-    if (qu && (qu === 'test' || /^https?:\/\//i.test(qu))) GAME_URL = qu;   // ?u=test — встроенная проверка окон
-  } catch (e) {}
-  var DW = 360, DH = 640;      // логический размер окна 9:16
-  var GAP = 3;                 // промежуток между ячейками по горизонтали
-  var NH = 19;                 // высота полосы ника (~3 мм)
+  var DW = 360, DH = 640;
+  var GAP = 3;
+  var NH = 19;
   var COLS = 3, ROWS = 3, COUNT = COLS * ROWS;
-  var TIMEOUT_MS = 12000;
   var NICK_KEY = 'sigma6_nicks_v1';
+  var LINK_KEY = 'sigma6_links_v1';
+  var RES_KEY  = 'sigma6_resume_v1';
+  var BG_KEY   = 'sigma6_bg_v1';
+  var VERSION  = 'v5';
+  var BLOCKED  = /^(javascript|data|vbscript|file|blob|about):/i;
 
   var stage = document.getElementById('stage');
-  var veil = document.getElementById('veil');
-  var wins = [];
-  var openIdx = -1;
-  var nicks = [];
-  try { nicks = JSON.parse(localStorage.getItem(NICK_KEY) || '[]') || []; } catch (e) { nicks = []; }
+  var cells = [];
 
-  function saveNicks() { try { localStorage.setItem(NICK_KEY, JSON.stringify(nicks)); } catch (e) {} }
+  function load(key, def) { try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v || def; } catch (e) { return def; } }
+  function store(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  var nicks = load(NICK_KEY, []);
+  var links = load(LINK_KEY, []);
+  var resumes = load(RES_KEY, []);
+  var bgs = load(BG_KEY, []);
 
-  function makeChip(w, text, isErr, fadeMs) {
-    w.chip.textContent = text;
-    w.chip.className = 'chip' + (isErr ? ' err' : '');
-    clearTimeout(w.chipTimer);
-    if (fadeMs) w.chipTimer = setTimeout(function () { w.chip.classList.add('hide'); }, fadeMs);
+  // Приоритет: сначала возврат (живая вкладка), потом полный адрес (первый запуск)
+  function target(i) { return resumes[i] || links[i] || ''; }
+
+  var toastEl = document.getElementById('toast'), toastTimer;
+  function toast(t) {
+    toastEl.textContent = t; toastEl.classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 4000);
   }
 
-  function setEditing(w, on) {
-    w.editing = on;
-    w.dot.classList.toggle('edit', on);
-    w.input.classList.toggle('edit', on);
-    w.input.readOnly = !on;
-    w.dot.setAttribute('aria-label', on ? 'Сохранить ник' : 'Редактировать ник');
-    if (on) { w.input.focus(); }
-    else { w.input.blur(); }
+  function check(raw) {
+    raw = (raw || '').replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\u00A0/g, ' ').trim();
+    if (!raw) return { err: 'Вставьте ссылку.' };
+    if (raw.length > 2000) return { err: 'Ссылка слишком длинная.' };
+    raw = raw.replace(/\s+/g, '%20');
+    if (BLOCKED.test(raw)) return { err: 'Такой тип ссылки не поддерживается.' };
+    if (/^[a-z][a-z0-9+.\-]*:/i.test(raw) && !/^[a-z0-9.\-]+:\d+(?:[\/?#]|$)/i.test(raw)) return { url: raw };
+    if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[:\/?#].*)?$/i.test(raw)) return { url: 'https://' + raw };
+    return { err: 'Нужна ссылка вида схема://адрес или адрес сайта.' };
   }
-  function commitNick(w, i) {
-    if (!w.editing) return;
-    nicks[i] = w.input.value.trim();
-    w.input.value = nicks[i];
-    saveNicks();
-    setEditing(w, false);
+  function labelOf(url) {
+    var m = /^([a-z][a-z0-9+.\-]*):/i.exec(url);
+    var scheme = m ? m[1] : '';
+    var rest = url.replace(/^[a-z][a-z0-9+.\-]*:(?:\/\/)?/i, '');
+    return { a: scheme, b: rest.length > 38 ? rest.slice(0, 38) + '…' : rest };
+  }
+  window.sigma6 = { check: check };
+
+  function paintCell(c, i) {
+    var url = target(i);
+    c.el.classList.toggle('has', !!url);
+    c.el.classList.toggle('hasret', !!(resumes[i] && links[i]));  // кнопка возврата, только если есть оба
+    c.bg.style.backgroundImage = bgs[i] ? 'url(' + bgs[i] + ')' : '';
+    c.el.classList.toggle('hasbg', !!bgs[i]);
+    if (url) {
+      var l = labelOf(url);
+      c.lab.textContent = l.a || 'ссылка';
+      c.sub.textContent = (resumes[i] ? '↩ ' : '') + l.b;
+    } else {
+      c.lab.textContent = 'ссылка не задана'; c.sub.textContent = '';
+    }
+  }
+
+  function setEditing(c, on) {
+    c.editing = on;
+    c.dot.classList.toggle('edit', on);
+    c.input.classList.toggle('edit', on);
+    c.input.readOnly = !on;
+    c.dot.setAttribute('aria-label', on ? 'Сохранить ник' : 'Редактировать ник');
+    if (on) { c.input.focus(); } else { c.input.blur(); }
+  }
+  function commitNick(c, i) {
+    if (!c.editing) return;
+    nicks[i] = c.input.value.trim();
+    c.input.value = nicks[i];
+    store(NICK_KEY, nicks);
+    setEditing(c, false);
+  }
+
+  // Прямой запуск URL через location.href — короче и надёжнее, чем <a target>
+  function launch(url, c, i, kind) {
+    c.st.textContent = (kind === 'ret' ? '↩ возврат…' : 'запуск…');
+    c.st.classList.remove('bad'); c.st.classList.add('on');
+    var startedVisible = !document.hidden;
+    try {
+      if (kind === 'ret') {
+        // голая схема: переходим без адреса, чтобы попасть в живую вкладку
+        window.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    } catch (e) {
+      c.st.textContent = 'ошибка'; c.st.classList.add('bad');
+      toast('Ячейка ' + (i + 1) + ': не удалось перейти по ссылке.');
+      return;
+    }
+    clearTimeout(c.stTimer);
+    c.stTimer = setTimeout(function () {
+      // если через 700 мс страница всё ещё видима — система не ушла, но и не показала ошибку
+      // (обычно значит, что ссылка открылась в новой вкладке или плашка отменена)
+      if (document.hidden || !startedVisible) { c.st.classList.remove('on'); return; }
+      c.st.textContent = 'не открылось'; c.st.classList.add('bad');
+      setTimeout(function () { c.st.classList.remove('on'); }, 3500);
+    }, 700);
   }
 
   function build(i) {
-    var slot = document.createElement('div'); slot.className = 'slot';
-    var scaler = document.createElement('div'); scaler.className = 'scaler';
-    var frame = document.createElement('iframe');
-    frame.title = 'Окно ' + (i + 1);
-    frame.setAttribute('allow', 'autoplay; clipboard-write; fullscreen');
-    scaler.appendChild(frame);
-    var chip = document.createElement('div');
-    var btn = document.createElement('button');
-    btn.className = 'btn'; btn.type = 'button';
-    btn.setAttribute('aria-label', 'Развернуть окно ' + (i + 1));
-    slot.appendChild(scaler); slot.appendChild(chip); slot.appendChild(btn);
-    stage.appendChild(slot);
+    var el = document.createElement('div');
+    el.className = 'cell';
+    el.setAttribute('role', 'link');
+    el.setAttribute('aria-label', 'Ячейка ' + (i + 1));
+    var idx = document.createElement('div'); idx.className = 'idx'; idx.textContent = String(i + 1);
+    var lab = document.createElement('div'); lab.className = 'lab';
+    var sub = document.createElement('div'); sub.className = 'sub';
+    var gem = document.createElement('span'); gem.className = 'gem';
+    var st  = document.createElement('div'); st.className = 'st';
+    var bg  = document.createElement('div'); bg.className = 'bgimg';
+    var ret = document.createElement('button'); ret.className = 'ret'; ret.type = 'button';
+    ret.textContent = '↩'; ret.setAttribute('aria-label', 'Вернуться в приложение без перезагрузки');
+    el.appendChild(bg); el.appendChild(idx); el.appendChild(lab); el.appendChild(sub);
+    el.appendChild(gem); el.appendChild(st); el.appendChild(ret);
+    stage.appendChild(el);
 
     var nick = document.createElement('div'); nick.className = 'nick';
     var dot = document.createElement('button'); dot.className = 'dot'; dot.type = 'button';
@@ -140,101 +318,197 @@
     input.readOnly = true; input.maxLength = 40;
     input.autocomplete = 'off'; input.autocapitalize = 'none';
     input.setAttribute('autocorrect', 'off'); input.spellcheck = false;
-    input.setAttribute('aria-label', 'Ник окна ' + (i + 1));
-    nick.appendChild(dot); nick.appendChild(input);
+    input.setAttribute('aria-label', 'Ник ячейки ' + (i + 1));
+    var cross = document.createElement('button'); cross.className = 'cross'; cross.type = 'button';
+    cross.setAttribute('aria-label', 'Ссылка ячейки ' + (i + 1));
+    nick.appendChild(dot); nick.appendChild(input); nick.appendChild(cross);
     stage.appendChild(nick);
 
-    var w = { slot: slot, scaler: scaler, frame: frame, chip: chip, btn: btn,
-              nick: nick, dot: dot, input: input, loaded: false, editing: false };
-    makeChip(w, 'Загрузка…', false, 0);
+    var c = { el: el, bg: bg, lab: lab, sub: sub, st: st, ret: ret, nick: nick, dot: dot, input: input, cross: cross, editing: false };
+    paintCell(c, i);
 
-    frame.addEventListener('load', function () {
-      w.loaded = true; clearTimeout(w.timer);
-      // load срабатывает и для страниц-заглушек браузера; содержимое чужого домена прочитать нельзя
-      makeChip(w, 'Событие load получено. Если окно пустое — сайт не разрешает встраивание.', false, 5000);
+    el.addEventListener('click', function (e) {
+      if (e.target === ret) return;                 // клик по кнопке возврата обрабатывается отдельно
+      cells.forEach(function (x, k) { commitNick(x, k); });
+      var url = target(i);
+      if (!url) { openSheet(i); return; }
+      launch(url, c, i, resumes[i] ? 'ret' : 'full');
     });
-    w.timer = setTimeout(function () {
-      if (!w.loaded) makeChip(w, 'Нет ответа 12 с: возможно, сайт запрещает встраивание (X-Frame-Options / frame-ancestors) или нет сети.', true, 0);
-    }, TIMEOUT_MS);
-
-    btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(i); });
+    ret.addEventListener('click', function (e) {
+      e.stopPropagation();
+      cells.forEach(function (x, k) { commitNick(x, k); });
+      if (!resumes[i]) { toast('Сначала задайте ссылку возврата в панели (зелёный крестик).'); openSheet(i); return; }
+      launch(resumes[i], c, i, 'ret');
+    });
     dot.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (openIdx >= 0) return;               // в развёрнутом режиме не работает
-      if (w.editing) commitNick(w, i); else setEditing(w, true);
+      if (c.editing) commitNick(c, i); else setEditing(c, true);
     });
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); commitNick(w, i); }
-    });
-    if (GAME_URL === 'test') {
-      frame.srcdoc = '<body style="margin:0;background:#0a7d4b;color:#fff;font:28px sans-serif;padding:24px">ТЕСТ ОКНА ' + (i + 1) + '<br>iframe работает</body>';
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commitNick(c, i); } });
+    cross.addEventListener('click', function (e) { e.stopPropagation(); openSheet(i); });
+    return c;
+  }
+
+  var sheetBg = document.getElementById('sheetBg'), sheet = document.getElementById('sheet');
+  var shTitle = document.getElementById('shTitle'), shFull = document.getElementById('shFull'), shRes = document.getElementById('shRes');
+  var shMsg = document.getElementById('shMsg');
+  var shTryFull = document.getElementById('shTryFull'), shTryRes = document.getElementById('shTryRes');
+  var shBgFile = document.getElementById('shBgFile');
+  var sheetIdx = -1, lastField = shFull;
+
+  function msg(t, ok) { shMsg.textContent = t; shMsg.className = 'msg' + (ok ? ' ok' : ''); }
+  function syncAnchor(a, input, kind) {
+    var r = input.value.trim() ? check(input.value) : { err: 1 };
+    if (r.url) {
+      a.setAttribute('href', r.url);
+      a.dataset.kind = kind; a.dataset.url = r.url;
+      a.removeAttribute('target'); a.removeAttribute('rel');
     } else {
-      frame.src = GAME_URL;   // iframe создаётся один раз и не пересоздаётся
+      a.setAttribute('href', '#');
+      delete a.dataset.kind; delete a.dataset.url;
     }
-    return w;
+  }
+  function syncTry() { syncAnchor(shTryFull, shFull, 'full'); syncAnchor(shTryRes, shRes, 'ret'); }
+  [shTryFull, shTryRes].forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (!a.dataset.url) { msg('Поле пустое или некорректное.', false); return; }
+      var idx = sheetIdx;
+      if (idx < 0) return;
+      var c = cells[idx];
+      launch(a.dataset.url, c, idx, a.dataset.kind);
+      closeSheet();
+    });
+  });
+  [shFull, shRes].forEach(function (f) {
+    f.addEventListener('focus', function () { lastField = f; });
+    f.addEventListener('input', function () { msg('', false); syncTry(); });
+  });
+
+  function placeSheet() {
+    var vv = window.visualViewport, b = 0;
+    if (vv) b = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    sheet.style.bottom = b + 'px';
+  }
+  function openSheet(i) {
+    cells.forEach(function (x, k) { commitNick(x, k); });
+    sheetIdx = i;
+    shTitle.textContent = 'Ячейка ' + (i + 1) + (nicks[i] ? ' · ' + nicks[i] : '') + ' · ' + VERSION;
+    shFull.value = links[i] || ''; shRes.value = resumes[i] || '';
+    lastField = shFull;
+    msg('', false); syncTry();
+    sheetBg.classList.add('on'); sheet.classList.add('on');
+    placeSheet();
+    shFull.focus();
+    try { shFull.select(); } catch (e) {}
+  }
+  function closeSheet() {
+    sheetIdx = -1;
+    sheetBg.classList.remove('on'); sheet.classList.remove('on');
+    shFull.blur(); shRes.blur();
+  }
+  function applySheet() {
+    if (sheetIdx < 0) return;
+    var f = shFull.value.trim(), s2 = shRes.value.trim();
+    if (!f && !s2) { msg('Вставьте хотя бы одну ссылку.', false); return; }
+    var rf = f ? check(shFull.value) : null, rs = s2 ? check(shRes.value) : null;
+    if (rf && rf.err) { msg('Ссылка с адресом: ' + rf.err, false); return; }
+    if (rs && rs.err) { msg('Ссылка для возврата: ' + rs.err, false); return; }
+    var i = sheetIdx;
+    links[i] = rf ? rf.url : ''; resumes[i] = rs ? rs.url : '';
+    var ok1 = store(LINK_KEY, links), ok2 = store(RES_KEY, resumes);
+    paintCell(cells[i], i);
+    closeSheet();
+    toast(ok1 && ok2 ? 'Ячейка ' + (i + 1) + ': сохранено.' : 'Применено, но браузер не дал сохранить.');
+  }
+  document.getElementById('shOk').addEventListener('click', applySheet);
+  document.getElementById('shClose').addEventListener('click', closeSheet);
+  sheetBg.addEventListener('click', closeSheet);
+  shFull.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); shRes.focus(); } });
+  shRes.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applySheet(); } });
+  document.getElementById('shClear').addEventListener('click', function () {
+    if (sheetIdx < 0) return;
+    var i = sheetIdx; links[i] = ''; resumes[i] = '';
+    store(LINK_KEY, links); store(RES_KEY, resumes); paintCell(cells[i], i);
+    shFull.value = ''; shRes.value = ''; syncTry(); msg('Ссылки удалены.', true);
+  });
+  document.getElementById('shPaste').addEventListener('click', function () {
+    var f = lastField || shFull;
+    if (!navigator.clipboard || !navigator.clipboard.readText) { msg('Вставьте вручную.', false); return; }
+    navigator.clipboard.readText().then(function (t) { f.value = (t || '').trim(); msg('', false); syncTry(); },
+      function () { msg('Нет доступа к буферу. Вставьте вручную.', false); });
+  });
+
+  // Подсказки-схемы
+  document.getElementById('shChips').addEventListener('click', function (e) {
+    var chip = e.target.closest('.chip'); if (!chip) return;
+    shRes.value = chip.dataset.scheme;
+    lastField = shRes;
+    msg('Схема подставлена. Проверьте кнопкой «Открыть возврат».', true);
+    syncTry();
+  });
+
+  // Фон ячейки (ручной — авто из веба невозможно)
+  function fileToBg(file, cb) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var im = new Image();
+      im.onload = function () {
+        var W = 270, H = 480, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var k = Math.max(W / im.width, H / im.height), w = im.width * k, h = im.height * k;
+        cv.getContext('2d').drawImage(im, (W - w) / 2, (H - h) / 2, w, h);
+        cb(cv.toDataURL('image/jpeg', 0.62));
+      };
+      im.onerror = function () { msg('Не удалось прочитать картинку.', false); };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
+  document.getElementById('shBg').addEventListener('click', function () { shBgFile.click(); });
+  shBgFile.addEventListener('change', function () {
+    var file = shBgFile.files && shBgFile.files[0]; if (!file || sheetIdx < 0) return;
+    var i = sheetIdx;
+    fileToBg(file, function (url) {
+      bgs[i] = url;
+      if (store(BG_KEY, bgs)) { paintCell(cells[i], i); msg('Фон сохранён.', true); }
+      else { bgs[i] = ''; msg('Не хватило памяти браузера для фона.', false); }
+      shBgFile.value = '';
+    });
+  });
+  document.getElementById('shBgOff').addEventListener('click', function () {
+    if (sheetIdx < 0) return;
+    var i = sheetIdx; bgs[i] = ''; store(BG_KEY, bgs); paintCell(cells[i], i); msg('Фон убран.', true);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function () { if (sheetIdx >= 0) placeSheet(); });
+    window.visualViewport.addEventListener('scroll', function () { if (sheetIdx >= 0) placeSheet(); });
   }
 
   function geom(i) {
-    var W = stage.clientWidth, H = stage.clientHeight, s, w, h, x, y;
-    if (i === openIdx) {
-      s = Math.min(W / DW, (H - NH) / DH);
-      w = DW * s; h = DH * s;
-      x = (W - w) / 2; y = NH + (H - NH - h) / 2;
-    } else {
-      var cw = (W - (COLS - 1) * GAP) / COLS, ch = (H - ROWS * NH) / ROWS;
-      s = Math.min(cw / DW, ch / DH);
-      w = DW * s; h = DH * s;
-      var c = i % COLS, r = Math.floor(i / COLS);
-      x = c * (cw + GAP) + (cw - w) / 2;
-      y = r * (NH + ch) + NH + (ch - h) / 2;
-    }
-    return { s: s, w: w, h: h, x: x, y: y };
+    var W = stage.clientWidth, H = stage.clientHeight;
+    var cw = (W - (COLS - 1) * GAP) / COLS, ch = (H - ROWS * NH) / ROWS;
+    var s = Math.min(cw / DW, ch / DH), w = DW * s, h = DH * s;
+    var c = i % COLS, r = Math.floor(i / COLS);
+    return { w: w, h: h, x: c * (cw + GAP) + (cw - w) / 2, y: r * (NH + ch) + NH + (ch - h) / 2 };
   }
-
   function layout() {
-    wins.forEach(function (w, i) {
+    cells.forEach(function (c, i) {
       var g = geom(i);
-      w.slot.style.left = g.x + 'px';
-      w.slot.style.top = g.y + 'px';
-      w.slot.style.width = g.w + 'px';
-      w.slot.style.height = g.h + 'px';
-      w.scaler.style.transform = 'scale(' + g.s + ')';
-      w.nick.style.left = g.x + 'px';
-      w.nick.style.top = (g.y - NH) + 'px';
-      w.nick.style.width = g.w + 'px';
+      c.el.style.left = g.x + 'px'; c.el.style.top = g.y + 'px';
+      c.el.style.width = g.w + 'px'; c.el.style.height = g.h + 'px';
+      c.nick.style.left = g.x + 'px'; c.nick.style.top = (g.y - NH) + 'px'; c.nick.style.width = g.w + 'px';
     });
   }
 
-  function toggle(i) {
-    wins.forEach(function (w, k) { commitNick(w, k); });   // сохранить правки перед разворотом
-    wins.forEach(function (w) { w.slot.classList.add('anim'); w.nick.classList.add('anim'); });
-    openIdx = (openIdx === i) ? -1 : i;
-    wins.forEach(function (w, k) {
-      var isOpen = k === openIdx;
-      w.slot.classList.toggle('open', isOpen);
-      w.nick.classList.toggle('locked', isOpen);
-      w.nick.classList.toggle('hide', openIdx >= 0 && !isOpen);
-      w.btn.setAttribute('aria-label', (isOpen ? 'Свернуть' : 'Развернуть') + ' окно ' + (k + 1));
-    });
-    stage.classList.toggle('has-open', openIdx >= 0);
-    veil.classList.toggle('on', openIdx >= 0);
-    layout();
-    setTimeout(function () {
-      wins.forEach(function (w) { w.slot.classList.remove('anim'); w.nick.classList.remove('anim'); });
-    }, 260);
-  }
-
-  for (var i = 0; i < COUNT; i++) wins.push(build(i));
+  for (var i = 0; i < COUNT; i++) cells.push(build(i));
   layout();
-
   var raf = 0;
   function relayout() { cancelAnimationFrame(raf); raf = requestAnimationFrame(layout); }
   window.addEventListener('resize', relayout);
   window.addEventListener('orientationchange', relayout);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
-
-  // Запрет pinch-zoom самой оболочки (внутри iframe жесты обрабатывает страница)
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  toast('SIGMA6 · ' + VERSION);
 })();
 </script>
 </body>
